@@ -1,0 +1,83 @@
+package com.chandan.freightfox.service;
+
+import com.chandan.freightfox.dto.OrderBatchRequest;
+import com.chandan.freightfox.dto.OrderRequest;
+import com.chandan.freightfox.entity.DeliveryOrder;
+import com.chandan.freightfox.entity.OrderPriority;
+import com.chandan.freightfox.repository.OrderRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Service managing delivery order persistence and retrieval.
+ */
+@Service
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+
+    public OrderService(OrderRepository orderRepository) {
+        this.orderRepository = orderRepository;
+    }
+
+    /**
+     * Persists a batch of delivery orders within a single transaction.
+     * Enforces in-memory uniqueness of orderId within the batch before any DB write.
+     * Uses JPA saveAll() (em.merge under the hood):
+     * - New order IDs are inserted.
+     * - Existing order IDs are updated.
+     *
+     * @param batchRequest validated batch input
+     * @return list of saved DeliveryOrder entities
+     */
+    @Transactional
+    public List<DeliveryOrder> saveOrderBatch(OrderBatchRequest batchRequest) {
+        if (batchRequest == null || batchRequest.getOrders() == null || batchRequest.getOrders().isEmpty()) {
+            throw new IllegalArgumentException("Orders batch must not be empty");
+        }
+
+        List<OrderRequest> requests = batchRequest.getOrders();
+        Set<String> seenIds = new HashSet<>();
+        List<DeliveryOrder> entities = new ArrayList<>(requests.size());
+
+        for (OrderRequest req : requests) {
+            String trimmedId = req.getOrderId() != null ? req.getOrderId().trim() : null;
+            if (trimmedId == null || trimmedId.isEmpty()) {
+                throw new IllegalArgumentException("orderId must not be blank");
+            }
+            if (!seenIds.add(trimmedId)) {
+                throw new IllegalArgumentException("Duplicate orderId found in incoming batch: " + trimmedId);
+            }
+
+            OrderPriority priority = OrderPriority.fromString(req.getPriority());
+            if (priority == null) {
+                throw new IllegalArgumentException("Invalid priority value: " + req.getPriority() + ". Expected HIGH, MEDIUM, or LOW");
+            }
+
+            DeliveryOrder order = new DeliveryOrder(
+                    trimmedId,
+                    req.getLatitude(),
+                    req.getLongitude(),
+                    req.getAddress(),
+                    req.getPackageWeight(),
+                    priority
+            );
+            entities.add(order);
+        }
+
+        return orderRepository.saveAll(entities);
+    }
+
+    /**
+     * Retrieves all delivery orders currently stored.
+     */
+    @Transactional(readOnly = true)
+    public List<DeliveryOrder> getAllOrders() {
+        return orderRepository.findAll();
+    }
+}

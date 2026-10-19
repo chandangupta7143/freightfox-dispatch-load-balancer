@@ -1,0 +1,295 @@
+{
+	"info": {
+		"_postman_id": "7fa84b90-1c89-4a9f-a8c7-45610bcde890",
+		"name": "FreightFox Dispatch Load Balancer",
+		"description": "Postman Collection for FreightFox Dispatch Load Balancer REST API. Implements order ingestion, vehicle ingestion, and optimized dispatch plan retrieval.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Retrieve Dispatch Plan (Initial / Empty)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/plan",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"plan"
+					]
+				},
+				"description": "Retrieves the current dispatch plan. When no orders or vehicles exist, returns HTTP 200 with empty arrays."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Input Fleet Details (Bangalore & Chennai)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"vehicles\": [\n    {\n      \"vehicleId\": \"VEH001\",\n      \"capacity\": 100.0,\n      \"currentLatitude\": 12.9716,\n      \"currentLongitude\": 77.6413,\n      \"currentAddress\": \"Indiranagar, Bangalore, Karnataka, India\"\n    },\n    {\n      \"vehicleId\": \"VEH002\",\n      \"capacity\": 150.0,\n      \"currentLatitude\": 13.0674,\n      \"currentLongitude\": 80.2376,\n      \"currentAddress\": \"T Nagar, Chennai, Tamil Nadu, India\"\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/vehicles",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"vehicles"
+					]
+				},
+				"description": "Submits two fleet vehicles from the assignment PDF example."
+			},
+			"response": []
+		},
+		{
+			"name": "3. Input Delivery Orders (Bangalore & Chennai)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"orders\": [\n    {\n      \"orderId\": \"ORD001\",\n      \"latitude\": 12.9716,\n      \"longitude\": 77.5946,\n      \"address\": \"MG Road, Bangalore, Karnataka, India\",\n      \"packageWeight\": 10.0,\n      \"priority\": \"HIGH\"\n    },\n    {\n      \"orderId\": \"ORD002\",\n      \"latitude\": 13.0827,\n      \"longitude\": 80.2707,\n      \"address\": \"Anna Salai, Chennai, Tamil Nadu, India\",\n      \"packageWeight\": 20.0,\n      \"priority\": \"MEDIUM\"\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/orders",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"orders"
+					]
+				},
+				"description": "Submits two delivery orders (HIGH and MEDIUM priority) from the assignment PDF example."
+			},
+			"response": []
+		},
+		{
+			"name": "4. Retrieve Dispatch Plan (Populated)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/plan",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"plan"
+					]
+				},
+				"description": "Retrieves the optimized plan after submitting Bangalore and Chennai orders and vehicles."
+			},
+			"response": []
+		},
+		{
+			"name": "5. Validation Error - Invalid Fields (Expect HTTP 400)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"orders\": [\n    {\n      \"orderId\": \"\",\n      \"latitude\": 105.0,\n      \"longitude\": 77.5946,\n      \"address\": \"\",\n      \"packageWeight\": -10.0,\n      \"priority\": \"URGENT\"\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/orders",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"orders"
+					]
+				},
+				"description": "Expects HTTP 400: blank orderId, latitude > 90, blank address, negative packageWeight, invalid priority."
+			},
+			"response": []
+		},
+		{
+			"name": "6. Validation Error - Duplicate IDs in Batch (Expect HTTP 400)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"orders\": [\n    {\n      \"orderId\": \"ORD_DUP\",\n      \"latitude\": 12.9716,\n      \"longitude\": 77.5946,\n      \"address\": \"MG Road, Bangalore\",\n      \"packageWeight\": 10.0,\n      \"priority\": \"HIGH\"\n    },\n    {\n      \"orderId\": \"ORD_DUP\",\n      \"latitude\": 13.0827,\n      \"longitude\": 80.2707,\n      \"address\": \"Anna Salai, Chennai\",\n      \"packageWeight\": 20.0,\n      \"priority\": \"MEDIUM\"\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/orders",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"orders"
+					]
+				},
+				"description": "Expects HTTP 400: duplicate orderId (ORD_DUP) in the same batch."
+			},
+			"response": []
+		},
+		{
+			"name": "7. Validation Error - Invalid Vehicle Capacity (Expect HTTP 400)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"vehicles\": [\n    {\n      \"vehicleId\": \"VEH_BAD\",\n      \"capacity\": -50.0,\n      \"currentLatitude\": 12.9716,\n      \"currentLongitude\": 77.6413,\n      \"currentAddress\": \"Indiranagar, Bangalore\"\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/vehicles",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"vehicles"
+					]
+				},
+				"description": "Expects HTTP 400: negative capacity (-50.0)."
+			},
+			"response": []
+		},
+		{
+			"name": "8. PDF Benchmark - 5 Fleet Vehicles",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"vehicles\": [\n    {\n      \"vehicleId\": \"VEH001\",\n      \"capacity\": 100.0,\n      \"currentLatitude\": 28.7041,\n      \"currentLongitude\": 77.1025,\n      \"currentAddress\": \"Karol Bagh, Delhi, India\"\n    },\n    {\n      \"vehicleId\": \"VEH002\",\n      \"capacity\": 80.0,\n      \"currentLatitude\": 28.5355,\n      \"currentLongitude\": 77.3910,\n      \"currentAddress\": \"Sector 18, Noida, Uttar Pradesh, India\"\n    },\n    {\n      \"vehicleId\": \"VEH003\",\n      \"capacity\": 120.0,\n      \"currentLatitude\": 28.4595,\n      \"currentLongitude\": 77.0266,\n      \"currentAddress\": \"Cyber Hub, Gurgaon, Haryana, India\"\n    },\n    {\n      \"vehicleId\": \"VEH004\",\n      \"capacity\": 90.0,\n      \"currentLatitude\": 28.6139,\n      \"currentLongitude\": 77.2090,\n      \"currentAddress\": \"Connaught Place, Delhi, India\"\n    },\n    {\n      \"vehicleId\": \"VEH005\",\n      \"capacity\": 110.0,\n      \"currentLatitude\": 28.7041,\n      \"currentLongitude\": 77.1025,\n      \"currentAddress\": \"Karol Bagh, Delhi, India\"\n    }\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/vehicles",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"vehicles"
+					]
+				},
+				"description": "Submits the 5 benchmark fleet vehicles from the assignment PDF (total capacity 500 kg)."
+			},
+			"response": []
+		},
+		{
+			"name": "9. PDF Benchmark - 30 Delivery Orders",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"orders\": [\n    {\"orderId\": \"ORD001\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 15.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD002\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 10.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD003\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD004\", \"latitude\": 28.5355, \"longitude\": 77.3910, \"address\": \"Sector 18, Noida, Uttar Pradesh, India\", \"packageWeight\": 25.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD005\", \"latitude\": 28.4595, \"longitude\": 77.0266, \"address\": \"Cyber Hub, Gurgaon, Haryana, India\", \"packageWeight\": 30.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD006\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 40.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD007\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD008\", \"latitude\": 28.5355, \"longitude\": 77.3910, \"address\": \"Sector 18, Noida, Uttar Pradesh, India\", \"packageWeight\": 25.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD009\", \"latitude\": 28.4595, \"longitude\": 77.0266, \"address\": \"Cyber Hub, Gurgaon, Haryana, India\", \"packageWeight\": 15.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD010\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 30.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD011\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD012\", \"latitude\": 28.5355, \"longitude\": 77.3910, \"address\": \"Sector 18, Noida, Uttar Pradesh, India\", \"packageWeight\": 10.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD013\", \"latitude\": 28.4595, \"longitude\": 77.0266, \"address\": \"Cyber Hub, Gurgaon, Haryana, India\", \"packageWeight\": 25.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD014\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 15.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD015\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD016\", \"latitude\": 28.5355, \"longitude\": 77.3910, \"address\": \"Sector 18, Noida, Uttar Pradesh, India\", \"packageWeight\": 30.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD017\", \"latitude\": 28.4595, \"longitude\": 77.0266, \"address\": \"Cyber Hub, Gurgaon, Haryana, India\", \"packageWeight\": 15.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD018\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 10.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD019\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD020\", \"latitude\": 28.5355, \"longitude\": 77.3910, \"address\": \"Sector 18, Noida, Uttar Pradesh, India\", \"packageWeight\": 30.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD021\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 25.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD022\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD023\", \"latitude\": 28.5355, \"longitude\": 77.3910, \"address\": \"Sector 18, Noida, Uttar Pradesh, India\", \"packageWeight\": 30.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD024\", \"latitude\": 28.4595, \"longitude\": 77.0266, \"address\": \"Cyber Hub, Gurgaon, Haryana, India\", \"packageWeight\": 15.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD025\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD026\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 25.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD027\", \"latitude\": 28.5355, \"longitude\": 77.3910, \"address\": \"Sector 18, Noida, Uttar Pradesh, India\", \"packageWeight\": 20.0, \"priority\": \"MEDIUM\"},\n    {\"orderId\": \"ORD028\", \"latitude\": 28.4595, \"longitude\": 77.0266, \"address\": \"Cyber Hub, Gurgaon, Haryana, India\", \"packageWeight\": 15.0, \"priority\": \"LOW\"},\n    {\"orderId\": \"ORD029\", \"latitude\": 28.6139, \"longitude\": 77.2090, \"address\": \"Connaught Place, Delhi, India\", \"packageWeight\": 30.0, \"priority\": \"HIGH\"},\n    {\"orderId\": \"ORD030\", \"latitude\": 28.7041, \"longitude\": 77.1025, \"address\": \"Karol Bagh, Delhi, India\", \"packageWeight\": 20.0, \"priority\": \"LOW\"}\n  ]\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/orders",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"orders"
+					]
+				},
+				"description": "Submits all 30 benchmark delivery orders from the assignment PDF (total weight 645 kg)."
+			},
+			"response": []
+		},
+		{
+			"name": "10. PDF Benchmark - Retrieve Full Plan",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/dispatch/plan",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"dispatch",
+						"plan"
+					]
+				},
+				"description": "Retrieves the full dispatch plan for the 30 orders and 5 vehicles from the assignment PDF."
+			},
+			"response": []
+		}
+	]
+}
