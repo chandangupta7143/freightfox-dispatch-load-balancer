@@ -6,6 +6,22 @@ Built as part of the FreightFox Backend Engineering assignment.
 
 ---
 
+## Live Deployment
+
+The application is deployed live on Render with MongoDB Atlas persistence:
+
+| Component | Link / Endpoint | Status |
+| :--- | :--- | :---: |
+| **Interactive Swagger UI** | [https://freightfox-dispatch-load-balancer.onrender.com/swagger-ui/index.html](https://freightfox-dispatch-load-balancer.onrender.com/swagger-ui/index.html) | `200 OK` |
+| **OpenAPI 3.1.0 Spec (JSON)** | [https://freightfox-dispatch-load-balancer.onrender.com/api-docs](https://freightfox-dispatch-load-balancer.onrender.com/api-docs) | `200 OK` |
+| **Live Dispatch Plan** | `GET` `https://freightfox-dispatch-load-balancer.onrender.com/api/dispatch/plan` | `200 OK` |
+| **Orders Ingestion** | `POST` `https://freightfox-dispatch-load-balancer.onrender.com/api/dispatch/orders` | `Ready` |
+| **Vehicles Ingestion** | `POST` `https://freightfox-dispatch-load-balancer.onrender.com/api/dispatch/vehicles` | `Ready` |
+
+> *Note: Render's free tier spins down idle instances after 15 minutes. If inactive, the initial request may take ~30–40 seconds to wake up the container.*
+
+---
+
 ## Features
 
 - **Priority-Driven Routing:** Critical shipments (`HIGH` priority) are evaluated and assigned before `MEDIUM` and `LOW` priority orders.
@@ -84,9 +100,10 @@ Once started, the application listens on `http://localhost:8080`.
 
 ## API Documentation
 
-When the application is running, open your browser to:
-- **Swagger UI:** [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
-- **OpenAPI Schema (JSON):** [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
+Interactive API documentation is available both locally and on the live deployment:
+- **Live Swagger UI:** [https://freightfox-dispatch-load-balancer.onrender.com/swagger-ui/index.html](https://freightfox-dispatch-load-balancer.onrender.com/swagger-ui/index.html)
+- **Live OpenAPI Spec:** [https://freightfox-dispatch-load-balancer.onrender.com/api-docs](https://freightfox-dispatch-load-balancer.onrender.com/api-docs)
+- **Local Swagger UI:** [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html) (when running locally)
 
 ---
 
