@@ -5,7 +5,6 @@ import com.chandan.freightfox.dto.VehicleRequest;
 import com.chandan.freightfox.entity.Vehicle;
 import com.chandan.freightfox.repository.VehicleRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -13,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Service managing vehicle persistence and retrieval.
+ * Service managing vehicle persistence and retrieval in MongoDB.
  */
 @Service
 public class VehicleService {
@@ -25,16 +24,15 @@ public class VehicleService {
     }
 
     /**
-     * Persists a batch of vehicles within a single transaction.
+     * Persists a batch of vehicles.
      * Enforces in-memory uniqueness of vehicleId within the batch before any DB write.
-     * Uses JPA saveAll() (em.merge under the hood):
+     * Uses MongoRepository saveAll():
      * - New vehicle IDs are inserted.
-     * - Existing vehicle IDs are updated.
+     * - Existing vehicle IDs are updated (in-place replacement by matching _id).
      *
      * @param batchRequest validated batch input
      * @return list of saved Vehicle entities
      */
-    @Transactional
     public List<Vehicle> saveVehicleBatch(VehicleBatchRequest batchRequest) {
         if (batchRequest == null || batchRequest.getVehicles() == null || batchRequest.getVehicles().isEmpty()) {
             throw new IllegalArgumentException("Vehicles batch must not be empty");
@@ -69,7 +67,6 @@ public class VehicleService {
     /**
      * Retrieves all vehicles currently stored.
      */
-    @Transactional(readOnly = true)
     public List<Vehicle> getAllVehicles() {
         return vehicleRepository.findAll();
     }

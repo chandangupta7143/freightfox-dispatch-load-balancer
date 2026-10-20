@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * End-to-end integration tests sending realistic HTTP requests over the wire to embedded server.
- * Verifies the full pipeline: HTTP -> Controller -> Service -> JPA/MySQL -> DispatchOptimizer -> Response DTOs.
+ * Verifies the full pipeline: HTTP -> Controller -> Service -> MongoDB -> DispatchOptimizer -> Response DTOs.
  * Uses safe ID tracking to clean up only test-generated rows.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)

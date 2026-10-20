@@ -20,12 +20,13 @@ Logistics operators receive batches of delivery orders and maintain fleets of ve
 
 - **Language:** Java 21 LTS (`<java.version>21</java.version>` bytecode target)
 - **Framework:** Spring Boot 3.4.5
-- **Data Access:** Spring Data JPA / Hibernate 6.6
-- **Database:** MySQL 8.0 (with production connection pooling via HikariCP)
+- **Data Access:** Spring Data MongoDB (Spring Data 4.4.5)
+- **Database:** MongoDB Atlas / MongoDB 6.0+
 - **API Documentation:** Springdoc OpenAPI / Swagger UI 2.8.6
 - **Validation:** Jakarta Bean Validation (`hibernate-validator`)
 - **Testing:** JUnit 5 (Jupiter), Mockito, AssertJ, Spring Test (`MockMvc`, `TestRestTemplate`)
 - **Build Tool:** Maven Wrapper (`mvnw` / `mvnw.cmd` with Apache Maven 3.10.0)
+- **Containerization & Deployment:** Multi-stage Dockerfile, Render Web Service
 
 ---
 
@@ -56,12 +57,12 @@ freightfox-dispatch-load-balancer/
     │   │   ├── util/
     │   │   │   └── HaversineCalculator.java # Great-circle distance utility (R = 6,371 km)
     │   │   ├── entity/
-    │   │   │   ├── DeliveryOrder.java       # JPA entity for delivery_orders table
-    │   │   │   ├── Vehicle.java             # JPA entity for vehicles table
+    │   │   │   ├── DeliveryOrder.java       # MongoDB document for delivery_orders collection
+    │   │   │   ├── Vehicle.java             # MongoDB document for vehicles collection
     │   │   │   └── OrderPriority.java       # Enum: HIGH, MEDIUM, LOW
     │   │   ├── repository/
-    │   │   │   ├── OrderRepository.java     # Spring Data JPA repository for orders
-    │   │   │   └── VehicleRepository.java   # Spring Data JPA repository for vehicles
+    │   │   │   ├── OrderRepository.java     # Spring Data MongoDB repository for orders
+    │   │   │   └── VehicleRepository.java   # Spring Data MongoDB repository for vehicles
     │   │   ├── dto/
     │   │   │   ├── OrderRequest.java        # Validated order input DTO
     │   │   │   ├── VehicleRequest.java      # Validated vehicle input DTO
@@ -76,7 +77,7 @@ freightfox-dispatch-load-balancer/
     │   │   └── exception/
     │   │       └── GlobalExceptionHandler.java # Centralized @RestControllerAdvice
     │   └── resources/
-    │       └── application.properties       # Server, MySQL, JPA & Swagger settings
+    │       └── application.properties       # Server, MongoDB URI & Swagger settings
     └── test/
         └── java/com/chandan/freightfox/
             ├── DispatchApplicationTests.java         # Smoke test
@@ -85,7 +86,7 @@ freightfox-dispatch-load-balancer/
             ├── algorithm/SampleDatasetVerificationTest.java # PDF 30-order sample dataset evaluation
             ├── dto/ValidationTest.java                # Bean validation & duplicate detection
             ├── service/ServiceBatchLogicTest.java     # Business pre-flight checks
-            ├── service/PersistenceIntegrationTest.java# Live MySQL isolated persistence tests
+            ├── service/PersistenceIntegrationTest.java# Live MongoDB isolated persistence tests
             ├── controller/DispatchControllerTest.java # MockMvc REST endpoint unit tests
             └── controller/DispatchEndToEndIntegrationTest.java # Full HTTP lifecycle integration tests
 ```
@@ -95,38 +96,33 @@ freightfox-dispatch-load-balancer/
 ## 4. Prerequisites
 
 - **Java Development Kit (JDK):** Version 21 or higher (verified on JDK 25 LTS).
-- **Database:** MySQL 8.0 running locally on port `3306` (or accessible remotely).
+- **Database:** MongoDB Atlas cluster (or local MongoDB 6.0+ running on port `27017`).
 - **Build Tool:** Maven Wrapper is included (`mvnw.cmd` on Windows, `./mvnw` on Linux/macOS). No system-wide Maven installation is required.
 
 ---
 
 ## 5. Local Setup & Configuration
 
-### Step 1: Create the Database
-Ensure MySQL is running and create the database schema:
+### Step 1: Configure Environment Variables
+To keep credentials secure, passwords must **never** be hardcoded or committed to version control. Set the `MONGODB_URI` environment variable in your terminal session before starting the application:
 
-```sql
-CREATE DATABASE IF NOT EXISTS FreightFox;
-```
-
-### Step 2: Configure Environment Variables
-To keep credentials secure, passwords must **never** be hardcoded or committed to version control. Set environment variables in your terminal session before starting the application:
-
-#### Windows PowerShell:
+#### Windows PowerShell (Local MongoDB):
 ```powershell
-$env:DB_URL = "jdbc:mysql://localhost:3306/FreightFox"
-$env:DB_USERNAME = "root"
-$env:DB_PASSWORD = "your_mysql_password_here"
+# If using local MongoDB on default port (optional, this is the built-in default):
+$env:MONGODB_URI = "mongodb://localhost:27017/freightfox"
 ```
 
-#### Linux / macOS Bash:
+#### Windows PowerShell (MongoDB Atlas):
+```powershell
+$env:MONGODB_URI = "mongodb+srv://chandangupta21092005_db_user:<YOUR_PASSWORD>@cluster0.plaz2ou.mongodb.net/freightfox?retryWrites=true&w=majority"
+```
+
+#### Linux / macOS Bash (MongoDB Atlas):
 ```bash
-export DB_URL="jdbc:mysql://localhost:3306/FreightFox"
-export DB_USERNAME="root"
-export DB_PASSWORD="your_mysql_password_here"
+export MONGODB_URI="mongodb+srv://chandangupta21092005_db_user:<YOUR_PASSWORD>@cluster0.plaz2ou.mongodb.net/freightfox?retryWrites=true&w=majority"
 ```
 
-*Note: If `DB_URL` is omitted, `application.properties` defaults to `jdbc:mysql://localhost:3306/FreightFox`.*
+*Note: If `MONGODB_URI` is omitted, `application.properties` defaults to `mongodb://localhost:27017/freightfox`.*
 
 ---
 
@@ -465,10 +461,11 @@ An importable Postman collection is provided in:
 10. `GET /api/dispatch/plan - Full PDF Sample Plan` — Generates complete Delhi NCR dispatch plan.
 
 #### Safe Local Data Reset:
-To reset only test data created during manual testing without deleting unrelated database tables, execute in MySQL:
-```sql
-DELETE FROM delivery_orders WHERE order_id LIKE 'ORD%' OR order_id LIKE 'TEST_%';
-DELETE FROM vehicles WHERE vehicle_id LIKE 'VEH%' OR vehicle_id LIKE 'TEST_%';
+To reset only test data created during manual testing without deleting unrelated collections, execute in `mongosh` / MongoDB Compass:
+```javascript
+use freightfox;
+db.delivery_orders.deleteMany({ orderId: { $regex: /^(ORD|TEST_)/ } });
+db.vehicles.deleteMany({ vehicleId: { $regex: /^(VEH|TEST_)/ } });
 ```
 
 ---
@@ -504,3 +501,38 @@ The application is thoroughly verified by **68 automated tests** covering every 
 1. **Greedy Heuristic vs. Global Optimal:** The priority-aware nearest neighbor algorithm prioritizes urgent orders and executes fast ($O(O \cdot V)$), but does not solve NP-hard Capacitated Vehicle Routing Problem (CVRP) to global distance optimality.
 2. **Static Distance Metric:** Calculations use great-circle Haversine distances. Road network topology, one-way streets, and live traffic congestion are not considered.
 3. **Sequential Single Trip:** Each vehicle performs a single route from its current position until its capacity is exhausted, without multi-trip replenishment.
+
+---
+
+## 15. Render + MongoDB Atlas Cloud Deployment Guide
+
+### A. MongoDB Atlas Preparation
+1. **Cluster:** `cluster0.plaz2ou.mongodb.net`
+2. **Database:** `freightfox`
+3. **Collections:** `delivery_orders`, `vehicles` (auto-created on first insert)
+4. **Network Access Allowlist:**
+   - In MongoDB Atlas dashboard &rarr; **Security** &rarr; **Network Access**.
+   - For local development: Click **Add IP Address** &rarr; **Add Current IP Address**.
+   - For Render cloud deployment: Render instances use dynamic outbound IPs. To allow connectivity, configure `0.0.0.0/0` ("Allow Access from Anywhere") or specify the dedicated outbound IP if using a paid Render team/static outbound IP plan.
+
+### B. Render Web Service Deployment
+1. Log in to [render.com](https://render.com) and click **New +** &rarr; **Web Service**.
+2. Connect your GitHub repository: `https://github.com/chandangupta7143/freightfox-dispatch-load-balancer`.
+3. Configure the service settings:
+   - **Name:** `freightfox-dispatch-load-balancer` (or desired name)
+   - **Region:** Singapore / Frankfurt / Oregon (nearest to your Atlas cluster)
+   - **Branch:** `main`
+   - **Runtime / Environment:** **Docker** (Render automatically detects the multi-stage `Dockerfile`)
+   - **Plan:** Free
+4. In **Environment Variables**, add:
+   - `MONGODB_URI`: `mongodb+srv://chandangupta21092005_db_user:<YOUR_PASSWORD>@cluster0.plaz2ou.mongodb.net/freightfox?retryWrites=true&w=majority`
+   - *(Optional)* `PORT`: `10000` (Render dynamically sets `$PORT`, which our `Dockerfile` and `application.properties` bind to automatically).
+5. Click **Deploy Web Service**.
+6. Render builds the Docker image and starts the container.
+7. Once deployed, verify:
+   - **Swagger UI:** `https://<your-render-subdomain>.onrender.com/swagger-ui.html`
+   - **OpenAPI Docs:** `https://<your-render-subdomain>.onrender.com/api-docs`
+   - **API Endpoints:** Use Postman or curl against the live URL.
+
+> [!NOTE]
+> **Free-Tier Cold Starts:** Render's free tier spins down web services after 15 minutes of inactivity. When a new request arrives, it spins up the container, which may take ~30–50 seconds on initial wake-up. Subsequent requests execute with sub-second latency.

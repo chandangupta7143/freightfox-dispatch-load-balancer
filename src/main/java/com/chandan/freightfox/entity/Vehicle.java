@@ -1,33 +1,25 @@
 package com.chandan.freightfox.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 import java.util.Objects;
 
 /**
- * JPA entity representing a fleet vehicle.
- * Maps to the vehicles table.
+ * MongoDB document representing a fleet vehicle.
+ * Maps to the vehicles collection.
  */
-@Entity
-@Table(name = "vehicles")
+@Document(collection = "vehicles")
 public class Vehicle {
 
     @Id
-    @Column(name = "vehicle_id", nullable = false, length = 50)
     private String vehicleId;
 
-    @Column(name = "capacity", nullable = false)
     private Double capacity;
 
-    @Column(name = "current_latitude", nullable = false)
     private Double currentLatitude;
 
-    @Column(name = "current_longitude", nullable = false)
     private Double currentLongitude;
 
-    @Column(name = "current_address", nullable = false, length = 500)
     private String currentAddress;
 
     public Vehicle() {

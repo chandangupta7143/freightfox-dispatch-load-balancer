@@ -6,7 +6,6 @@ import com.chandan.freightfox.entity.DeliveryOrder;
 import com.chandan.freightfox.entity.OrderPriority;
 import com.chandan.freightfox.repository.OrderRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -14,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Service managing delivery order persistence and retrieval.
+ * Service managing delivery order persistence and retrieval in MongoDB.
  */
 @Service
 public class OrderService {
@@ -26,16 +25,15 @@ public class OrderService {
     }
 
     /**
-     * Persists a batch of delivery orders within a single transaction.
+     * Persists a batch of delivery orders.
      * Enforces in-memory uniqueness of orderId within the batch before any DB write.
-     * Uses JPA saveAll() (em.merge under the hood):
+     * Uses MongoRepository saveAll():
      * - New order IDs are inserted.
-     * - Existing order IDs are updated.
+     * - Existing order IDs are updated (in-place replacement by matching _id).
      *
      * @param batchRequest validated batch input
      * @return list of saved DeliveryOrder entities
      */
-    @Transactional
     public List<DeliveryOrder> saveOrderBatch(OrderBatchRequest batchRequest) {
         if (batchRequest == null || batchRequest.getOrders() == null || batchRequest.getOrders().isEmpty()) {
             throw new IllegalArgumentException("Orders batch must not be empty");
@@ -76,7 +74,6 @@ public class OrderService {
     /**
      * Retrieves all delivery orders currently stored.
      */
-    @Transactional(readOnly = true)
     public List<DeliveryOrder> getAllOrders() {
         return orderRepository.findAll();
     }

@@ -8,7 +8,6 @@ import com.chandan.freightfox.dto.VehicleDispatchEntry;
 import com.chandan.freightfox.entity.DeliveryOrder;
 import com.chandan.freightfox.entity.Vehicle;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +35,6 @@ public class DispatchService {
      *
      * @return DispatchPlanResponse containing vehicle routes and unassigned orders
      */
-    @Transactional(readOnly = true)
     public DispatchPlanResponse generateDispatchPlan() {
         List<DeliveryOrder> orders = orderService.getAllOrders();
         List<Vehicle> vehicles = vehicleService.getAllVehicles();

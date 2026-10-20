@@ -1,39 +1,27 @@
 package com.chandan.freightfox.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.mapping.Document;
 import java.util.Objects;
 
 /**
- * JPA entity representing a delivery order.
- * Maps to the delivery_orders table.
+ * MongoDB document representing a delivery order.
+ * Maps to the delivery_orders collection.
  */
-@Entity
-@Table(name = "delivery_orders")
+@Document(collection = "delivery_orders")
 public class DeliveryOrder {
 
     @Id
-    @Column(name = "order_id", nullable = false, length = 50)
     private String orderId;
 
-    @Column(name = "latitude", nullable = false)
     private Double latitude;
 
-    @Column(name = "longitude", nullable = false)
     private Double longitude;
 
-    @Column(name = "address", nullable = false, length = 500)
     private String address;
 
-    @Column(name = "package_weight", nullable = false)
     private Double packageWeight;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "priority", nullable = false, length = 10)
     private OrderPriority priority;
 
     public DeliveryOrder() {

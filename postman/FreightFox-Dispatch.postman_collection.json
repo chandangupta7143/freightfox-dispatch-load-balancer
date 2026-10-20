@@ -10,6 +10,11 @@
 			"key": "baseUrl",
 			"value": "http://localhost:8080",
 			"type": "string"
+		},
+		{
+			"key": "renderUrl",
+			"value": "https://freightfox-dispatch-load-balancer.onrender.com",
+			"type": "string"
 		}
 	],
 	"item": [
