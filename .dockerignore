@@ -1,0 +1,37 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Build outputs & caches
+target/
+build/
+*.class
+
+# IDE & Editor files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.settings/
+.project/
+.classpath
+.apt_generated/
+.factorypath/
+.springBeans/
+.sts4-cache/
+
+# Environment files & Secrets
+.env
+.env.*
+*.log
+
+# Audit documents & test collections (not needed in Docker build context)
+*.md
+!README.md
+postman/
+
+# OS temporary files
+.DS_Store
+Thumbs.db

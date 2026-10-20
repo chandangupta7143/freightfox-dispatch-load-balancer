@@ -1,211 +1,128 @@
 # FreightFox Dispatch Load Balancer
 
-A high-performance, test-driven Spring Boot backend service that optimizes the allocation and routing of delivery orders across a fleet of vehicles. The engine balances payload capacities, prioritizes urgent shipments, and minimizes total travel distance using the spherical Haversine formula.
+A Spring Boot service that allocates delivery orders across a fleet of vehicles. The system balances vehicle payload limits, respects priority levels (`HIGH` > `MEDIUM` > `LOW`), and minimizes travel distance using the Haversine formula.
+
+Built as part of the FreightFox Backend Engineering assignment.
 
 ---
 
-## 1. Project Overview & Business Problem
+## Features
 
-Logistics operators receive batches of delivery orders and maintain fleets of vehicles operating with varying load capacities and starting locations. The challenge is to compute a feasible, cost-effective dispatch plan that:
-
-1. **Prioritizes Urgent Shipments:** `HIGH` priority orders must be evaluated and routed before `MEDIUM` and `LOW` priority orders.
-2. **Strictly Enforces Vehicle Capacities:** The cumulative package weight on any vehicle must never exceed that vehicle's maximum carrying capacity.
-3. **Minimizes Travel Distance:** Each order is dynamically routed to the nearest feasible vehicle based on great-circle Haversine distance from the vehicle's latest stop.
-4. **Guarantees Complete Accountability:** Every submitted order is either allocated along an explicit route or reported with a transparent reason in the `unassignedOrders` list.
-5. **Provides Immediate Visualization:** Each vehicle's route reports the delivery sequence, total payload, and formatted cumulative travel distance.
+- **Priority-Driven Routing:** Critical shipments (`HIGH` priority) are evaluated and assigned before `MEDIUM` and `LOW` priority orders.
+- **Strict Capacity Enforcement:** Orders are only placed on vehicles that have enough remaining payload capacity. No vehicle is ever overloaded.
+- **Proximity Optimization:** For each order, the closest feasible vehicle is selected based on great-circle distance from its current stop to the delivery location.
+- **Full Accountability:** Every order submitted is accounted for. If an order cannot fit into the fleet, it is returned in the `unassignedOrders` list with the reason.
+- **Idempotent Batch Upserts:** Vehicles and orders can be submitted in batches. Re-submitting the same IDs updates existing records without creating duplicates.
+- **MongoDB Persistence:** Fleet and order data are persisted in MongoDB Atlas.
+- **Interactive Documentation:** Swagger UI and OpenAPI 3.1.0 specification ready out of the box.
 
 ---
 
-## 2. Technology Stack
+## Tech Stack
 
-- **Language:** Java 21 LTS (`<java.version>21</java.version>` bytecode target)
+- **Java:** 21 (LTS)
 - **Framework:** Spring Boot 3.4.5
-- **Data Access:** Spring Data MongoDB (Spring Data 4.4.5)
-- **Database:** MongoDB Atlas / MongoDB 6.0+
-- **API Documentation:** Springdoc OpenAPI / Swagger UI 2.8.6
-- **Validation:** Jakarta Bean Validation (`hibernate-validator`)
-- **Testing:** JUnit 5 (Jupiter), Mockito, AssertJ, Spring Test (`MockMvc`, `TestRestTemplate`)
-- **Build Tool:** Maven Wrapper (`mvnw` / `mvnw.cmd` with Apache Maven 3.10.0)
-- **Containerization & Deployment:** Multi-stage Dockerfile, Render Web Service
+- **Persistence:** Spring Data MongoDB 4.4.5 / MongoDB Atlas
+- **Documentation:** Springdoc OpenAPI / Swagger UI 2.8.6
+- **Validation:** Jakarta Bean Validation (Hibernate Validator)
+- **Testing:** JUnit 5, Mockito, MockMvc, AssertJ (68 automated tests)
+- **Build Tool:** Maven Wrapper (`mvnw` / `mvnw.cmd`)
+- **Containerization:** Multi-stage Dockerfile (Eclipse Temurin 21 JRE Alpine)
 
 ---
 
-## 3. Architecture & Project Structure
+## Getting Started
 
-The project strictly follows layered architecture principles, ensuring complete separation of concerns:
+### Prerequisites
+- **JDK 21** installed (`java -version`)
+- A running **MongoDB** instance (local on `localhost:27017` or a MongoDB Atlas cluster)
+- Maven is not required on your system — the repo includes the Maven Wrapper.
 
-```
-freightfox-dispatch-load-balancer/
-├── pom.xml                                  # Maven dependencies, plugins & JVM configuration
-├── mvnw / mvnw.cmd                          # Maven Wrapper scripts
-├── postman/
-│   └── FreightFox-Dispatch.postman_collection.json  # Importable Postman test collection
-└── src/
-    ├── main/
-    │   ├── java/com/chandan/freightfox/
-    │   │   ├── DispatchApplication.java    # Spring Boot entry point
-    │   │   ├── config/
-    │   │   │   └── OpenApiConfig.java       # Swagger / OpenAPI documentation configuration
-    │   │   ├── controller/
-    │   │   │   └── DispatchController.java  # REST controller (3 endpoints)
-    │   │   ├── service/
-    │   │   │   ├── OrderService.java        # Batch order persistence & retrieval
-    │   │   │   ├── VehicleService.java      # Batch vehicle persistence & retrieval
-    │   │   │   └── DispatchService.java     # Orchestrates DB retrieval, optimizer, DTO mapping
-    │   │   ├── algorithm/
-    │   │   │   └── DispatchOptimizer.java   # Pure algorithm: Priority-aware Greedy Nearest Neighbor
-    │   │   ├── util/
-    │   │   │   └── HaversineCalculator.java # Great-circle distance utility (R = 6,371 km)
-    │   │   ├── entity/
-    │   │   │   ├── DeliveryOrder.java       # MongoDB document for delivery_orders collection
-    │   │   │   ├── Vehicle.java             # MongoDB document for vehicles collection
-    │   │   │   └── OrderPriority.java       # Enum: HIGH, MEDIUM, LOW
-    │   │   ├── repository/
-    │   │   │   ├── OrderRepository.java     # Spring Data MongoDB repository for orders
-    │   │   │   └── VehicleRepository.java   # Spring Data MongoDB repository for vehicles
-    │   │   ├── dto/
-    │   │   │   ├── OrderRequest.java        # Validated order input DTO
-    │   │   │   ├── VehicleRequest.java      # Validated vehicle input DTO
-    │   │   │   ├── OrderBatchRequest.java   # Batch order wrapper with duplicate ID check
-    │   │   │   ├── VehicleBatchRequest.java # Batch vehicle wrapper with duplicate ID check
-    │   │   │   ├── ApiResponse.java         # Standard success response payload
-    │   │   │   ├── AssignedOrderDto.java    # Preserves all 6 order fields in plan route
-    │   │   │   ├── UnassignedOrderDto.java  # Unassigned order representation with reason
-    │   │   │   ├── VehicleDispatchEntry.java# Vehicle route entry (load, distance, stops)
-    │   │   │   ├── DispatchPlanResponse.java# Top-level GET /plan response payload
-    │   │   │   └── ErrorResponse.java       # Consistent error response payload
-    │   │   └── exception/
-    │   │       └── GlobalExceptionHandler.java # Centralized @RestControllerAdvice
-    │   └── resources/
-    │       └── application.properties       # Server, MongoDB URI & Swagger settings
-    └── test/
-        └── java/com/chandan/freightfox/
-            ├── DispatchApplicationTests.java         # Smoke test
-            ├── util/HaversineCalculatorTest.java      # Distance formula & boundary tests
-            ├── algorithm/DispatchOptimizerTest.java   # Algorithm logic & tie-breaking tests
-            ├── algorithm/SampleDatasetVerificationTest.java # PDF 30-order sample dataset evaluation
-            ├── dto/ValidationTest.java                # Bean validation & duplicate detection
-            ├── service/ServiceBatchLogicTest.java     # Business pre-flight checks
-            ├── service/PersistenceIntegrationTest.java# Live MongoDB isolated persistence tests
-            ├── controller/DispatchControllerTest.java # MockMvc REST endpoint unit tests
-            └── controller/DispatchEndToEndIntegrationTest.java # Full HTTP lifecycle integration tests
-```
+### 1. Set MongoDB Connection String
 
----
+Set the `MONGODB_URI` environment variable in your terminal before running:
 
-## 4. Prerequisites
-
-- **Java Development Kit (JDK):** Version 21 or higher (verified on JDK 25 LTS).
-- **Database:** MongoDB Atlas cluster (or local MongoDB 6.0+ running on port `27017`).
-- **Build Tool:** Maven Wrapper is included (`mvnw.cmd` on Windows, `./mvnw` on Linux/macOS). No system-wide Maven installation is required.
-
----
-
-## 5. Local Setup & Configuration
-
-### Step 1: Configure Environment Variables
-To keep credentials secure, passwords must **never** be hardcoded or committed to version control. Set the `MONGODB_URI` environment variable in your terminal session before starting the application:
-
-#### Windows PowerShell (Local MongoDB):
-```powershell
-# If using local MongoDB on default port (optional, this is the built-in default):
-$env:MONGODB_URI = "mongodb://localhost:27017/freightfox"
-```
-
-#### Windows PowerShell (MongoDB Atlas):
-```powershell
-$env:MONGODB_URI = "mongodb+srv://chandangupta21092005_db_user:<YOUR_PASSWORD>@cluster0.plaz2ou.mongodb.net/freightfox?retryWrites=true&w=majority"
-```
-
-#### Linux / macOS Bash (MongoDB Atlas):
+**Linux / macOS:**
 ```bash
-export MONGODB_URI="mongodb+srv://chandangupta21092005_db_user:<YOUR_PASSWORD>@cluster0.plaz2ou.mongodb.net/freightfox?retryWrites=true&w=majority"
+export MONGODB_URI="mongodb+srv://<username>:<password>@<cluster>.mongodb.net/freightfox?retryWrites=true&w=majority"
 ```
 
-*Note: If `MONGODB_URI` is omitted, `application.properties` defaults to `mongodb://localhost:27017/freightfox`.*
-
----
-
-## 6. Building & Running the Application
-
-### Run Tests
-Execute the comprehensive test suite (68 automated tests):
+**Windows (PowerShell):**
 ```powershell
-# Windows
-.\mvnw.cmd test
-
-# Linux/macOS
-./mvnw test
+$env:MONGODB_URI = "mongodb+srv://<username>:<password>@<cluster>.mongodb.net/freightfox?retryWrites=true&w=majority"
 ```
 
-### Package Executable JAR
-Compile Java 21 sources and package the production JAR:
-```powershell
-# Windows
-.\mvnw.cmd clean package -DskipTests
+*(If omitted, the app defaults to `mongodb://localhost:27017/freightfox`)*
 
-# Linux/macOS
+### 2. Run Tests
+The test suite contains 68 automated unit and integration tests covering the algorithm, distance calculations, validation rules, repository operations, and REST controllers.
+
+```bash
+# Linux / macOS
+./mvnw clean test
+
+# Windows
+.\mvnw.cmd clean test
+```
+
+### 3. Build & Run Locally
+
+```bash
+# Package the executable JAR
 ./mvnw clean package -DskipTests
+
+# Run via Java
+java -jar target/freightfox-dispatch-load-balancer-0.0.1-SNAPSHOT.jar
+
+# Or run directly with Maven
+./mvnw spring-boot:run
 ```
 
-### Run the Application
-You can run the application directly via Spring Boot Maven plugin or with Java:
-
-```powershell
-# Option A: Maven Wrapper
-.\mvnw.cmd spring-boot:run
-
-# Option B: Executable JAR
-java -jar target\freightfox-dispatch-load-balancer-0.0.1-SNAPSHOT.jar
-```
-
-The service will start on `http://localhost:8080`.
+Once started, the application listens on `http://localhost:8080`.
 
 ---
 
-## 7. Interactive Swagger / OpenAPI Documentation
+## API Documentation
 
-When the application is running, full interactive API documentation is available at:
-
+When the application is running, open your browser to:
 - **Swagger UI:** [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
-- **OpenAPI JSON Spec:** [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
+- **OpenAPI Schema (JSON):** [http://localhost:8080/api-docs](http://localhost:8080/api-docs)
 
 ---
 
-## 8. REST API Specifications
+## REST Endpoints & Usage
 
-The service exposes the three required endpoints under `/api/dispatch`.
-
-### 1. Input Fleet Details
-Persists fleet vehicles into the database using transactional batch upsert.
+### 1. Ingest Fleet Details
+Uploads a batch of vehicles with their starting location and capacity.
 
 - **Method:** `POST`
-- **Path:** `/api/dispatch/vehicles`
+- **URL:** `/api/dispatch/vehicles`
 - **Headers:** `Content-Type: application/json`
 
-#### Request Body:
-```json
-{
-  "vehicles": [
-    {
-      "vehicleId": "VEH001",
-      "capacity": 100.0,
-      "currentLatitude": 12.9716,
-      "currentLongitude": 77.6413,
-      "currentAddress": "Indiranagar, Bangalore, Karnataka, India"
-    },
-    {
-      "vehicleId": "VEH002",
-      "capacity": 150.0,
-      "currentLatitude": 13.0674,
-      "currentLongitude": 80.2376,
-      "currentAddress": "T Nagar, Chennai, Tamil Nadu, India"
-    }
-  ]
-}
+```bash
+curl -X POST "http://localhost:8080/api/dispatch/vehicles" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vehicles": [
+      {
+        "vehicleId": "VEH001",
+        "capacity": 100.0,
+        "currentLatitude": 28.7041,
+        "currentLongitude": 77.1025,
+        "currentAddress": "Karol Bagh, Delhi, India"
+      },
+      {
+        "vehicleId": "VEH002",
+        "capacity": 80.0,
+        "currentLatitude": 28.5355,
+        "currentLongitude": 77.3910,
+        "currentAddress": "Sector 18, Noida, Uttar Pradesh, India"
+      }
+    ]
+  }'
 ```
 
-#### Success Response (`HTTP 200 OK`):
+**Response (`200 OK`):**
 ```json
 {
   "message": "Vehicle details accepted.",
@@ -215,38 +132,39 @@ Persists fleet vehicles into the database using transactional batch upsert.
 
 ---
 
-### 2. Input Delivery Orders
-Persists delivery orders into the database using transactional batch upsert.
+### 2. Ingest Delivery Orders
+Uploads a batch of delivery orders with drop-off coordinates, weight, and priority.
 
 - **Method:** `POST`
-- **Path:** `/api/dispatch/orders`
+- **URL:** `/api/dispatch/orders`
 - **Headers:** `Content-Type: application/json`
 
-#### Request Body:
-```json
-{
-  "orders": [
-    {
-      "orderId": "ORD001",
-      "latitude": 12.9716,
-      "longitude": 77.5946,
-      "address": "MG Road, Bangalore, Karnataka, India",
-      "packageWeight": 10.0,
-      "priority": "HIGH"
-    },
-    {
-      "orderId": "ORD002",
-      "latitude": 13.0827,
-      "longitude": 80.2707,
-      "address": "Anna Salai, Chennai, Tamil Nadu, India",
-      "packageWeight": 20.0,
-      "priority": "MEDIUM"
-    }
-  ]
-}
+```bash
+curl -X POST "http://localhost:8080/api/dispatch/orders" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "orders": [
+      {
+        "orderId": "ORD001",
+        "latitude": 28.6139,
+        "longitude": 77.2090,
+        "address": "Connaught Place, Delhi, India",
+        "packageWeight": 15.0,
+        "priority": "HIGH"
+      },
+      {
+        "orderId": "ORD002",
+        "latitude": 28.6139,
+        "longitude": 77.2090,
+        "address": "Connaught Place, Delhi, India",
+        "packageWeight": 10.0,
+        "priority": "MEDIUM"
+      }
+    ]
+  }'
 ```
 
-#### Success Response (`HTTP 200 OK`):
+**Response (`200 OK`):**
 ```json
 {
   "message": "Delivery orders accepted.",
@@ -257,53 +175,45 @@ Persists delivery orders into the database using transactional batch upsert.
 ---
 
 ### 3. Retrieve Dispatch Plan
-Generates an optimized load-balanced dispatch plan based on currently stored orders and fleet vehicles.
+Generates and returns the optimized routing plan based on all currently saved vehicles and orders.
 
 - **Method:** `GET`
-- **Path:** `/api/dispatch/plan`
-- **Headers:** `Accept: application/json`
+- **URL:** `/api/dispatch/plan`
 
-#### Success Response (`HTTP 200 OK`):
+```bash
+curl -X GET "http://localhost:8080/api/dispatch/plan"
+```
+
+**Response (`200 OK`):**
 ```json
 {
   "dispatchPlan": [
     {
       "vehicleId": "VEH001",
-      "totalLoad": 10.0,
-      "totalDistance": "5.06 km",
+      "totalLoad": 100.0,
+      "totalDistance": "14.44 km",
       "assignedOrders": [
         {
-          "orderId": "ORD001",
-          "latitude": 12.9716,
-          "longitude": 77.5946,
-          "address": "MG Road, Bangalore, Karnataka, India",
-          "packageWeight": 10.0,
-          "priority": "HIGH"
-        }
-      ]
-    },
-    {
-      "vehicleId": "VEH002",
-      "totalLoad": 20.0,
-      "totalDistance": "3.97 km",
-      "assignedOrders": [
-        {
-          "orderId": "ORD002",
-          "latitude": 13.0827,
-          "longitude": 80.2707,
-          "address": "Anna Salai, Chennai, Tamil Nadu, India",
+          "orderId": "ORD007",
+          "latitude": 28.7041,
+          "longitude": 77.1025,
+          "address": "Karol Bagh, Delhi, India",
           "packageWeight": 20.0,
-          "priority": "MEDIUM"
+          "priority": "HIGH"
         }
       ]
     }
   ],
-  "unassignedOrders": []
+  "unassignedOrders": [
+    {
+      "orderId": "ORD006",
+      "reason": "Insufficient vehicle capacity available"
+    }
+  ]
 }
 ```
 
-#### Empty State (`HTTP 200 OK`):
-If no orders or vehicles have been input, the endpoint safely returns empty arrays:
+If the database has no records yet, it returns empty arrays safely:
 ```json
 {
   "dispatchPlan": [],
@@ -313,226 +223,131 @@ If no orders or vehicles have been input, the endpoint safely returns empty arra
 
 ---
 
-## 9. Validation Rules & Error Handling
+## Validation & Error Handling
 
-All requests are strictly validated prior to database interaction.
-
-### Field Constraints:
-- `orderId` / `vehicleId`: Required, non-blank string.
-- `latitude` / `currentLatitude`: Required, numeric between `-90.0` and `90.0`.
-- `longitude` / `currentLongitude`: Required, numeric between `-180.0` and `180.0`.
-- `packageWeight` / `capacity`: Required, strictly positive numeric (`> 0.0`).
-- `priority`: Required, case-insensitive match for `HIGH`, `MEDIUM`, or `LOW`.
-- `address` / `currentAddress`: Required, non-blank string (up to 500 characters).
-- **Batch Uniqueness:** Batches containing duplicate `orderId`s or duplicate `vehicleId`s within the same payload are immediately rejected before database persistence.
-
-### Error Response Format (`HTTP 400 Bad Request`):
-```json
-{
-  "status": "error",
-  "message": "Validation failed",
-  "errors": [
-    "orders[0].latitude: latitude must be less than or equal to 90.0",
-    "orders[0].packageWeight: packageWeight must be greater than 0",
-    "orders[0].priority: priority must be HIGH, MEDIUM, or LOW"
-  ]
-}
-```
-
-### In-Batch Duplicate ID Error (`HTTP 400 Bad Request`):
-```json
-{
-  "status": "error",
-  "message": "Validation failed",
-  "errors": [
-    "uniqueOrderIds: Duplicate orderId found in incoming batch"
-  ]
-}
-```
+Input validation is enforced using Jakarta Bean Validation annotations:
+- Coordinates: Latitude (`-90.0` to `90.0`), Longitude (`-180.0` to `180.0`).
+- Weights & Capacities: Must be strictly positive numbers (`> 0.0`).
+- Priority: Must be one of `HIGH`, `MEDIUM`, or `LOW` (case-insensitive).
+- Batch Payload Uniqueness: Submitting duplicate `orderId` or `vehicleId` entries within the same request body returns `400 Bad Request`.
 
 ---
 
-## 10. Dispatch Optimization Algorithm
+## Dispatch Algorithm Overview
 
-### Strategy: Priority-aware Greedy Nearest Neighbor
-The assignment requires assigning orders to suitable vehicles while respecting vehicle capacity, processing high-priority orders first, and minimizing travel distance. We employ the **Priority-aware Greedy Nearest Neighbor** heuristic:
+The engine uses a **Priority-aware Greedy Nearest Neighbor** strategy:
+1. **Priority Sorting:** Orders are sorted primarily by priority (`HIGH` first, then `MEDIUM`, then `LOW`). Ties within the same priority are broken deterministically by `orderId` ascending.
+2. **Feasibility Check:** For each order, we find all vehicles whose current available capacity can accommodate the order's weight (`remainingCapacity >= packageWeight`).
+3. **Nearest Feasible Vehicle:** Among feasible vehicles, the order is assigned to the one with the shortest Haversine distance from the vehicle's last stop to the delivery location.
+4. **State Update:** The order is appended to the vehicle's route, the package weight is added to its load, and the vehicle's current position advances to this drop-off.
+5. **Unassigned Fallback:** If no vehicle has enough remaining capacity, the order is added to `unassignedOrders` with a clear explanation.
 
-```
-                  ┌─────────────────────────────────┐
-                  │    Retrieve Orders & Fleet      │
-                  └────────────────┬────────────────┘
-                                   │
-                                   ▼
-                  ┌─────────────────────────────────┐
-                  │ Sort Orders:                    │
-                  │ 1. Priority (HIGH > MED > LOW)  │
-                  │ 2. Tie-break: orderId ASC       │
-                  └────────────────┬────────────────┘
-                                   │
-                                   ▼
-                         [ For Each Order ]
-                                   │
-                                   ▼
-                       Is any vehicle feasible?
-               (remainingCapacity >= packageWeight)
-                                  / \
-                            Yes  /   \  No
-                                /     \
-                               v       v
-         ┌─────────────────────────┐  ┌─────────────────────────┐
-         │ Find Feasible Vehicle   │  │ Append to               │
-         │ with Min Haversine Dist │  │ unassignedOrders with    │
-         │ (Tie: vehicleId ASC)    │  │ capacity reason         │
-         └────────────┬────────────┘  └────────────┬────────────┘
-                      │                            │
-                      ▼                            │
-         ┌─────────────────────────┐               │
-         │ Assign order to vehicle:│               │
-         │ - Append to route       │               │
-         │ - Deduct remaining cap  │               │
-         │ - Add package weight    │               │
-         │ - Accumulate Haversine  │               │
-         │ - Advance vehicle pos   │               │
-         └────────────┬────────────┘               │
-                      │                            │
-                      └────────────┬───────────────┘
-                                   │
-                                   ▼
-                         [ Next Order ... ]
-                                   │
-                                   ▼
-                  ┌─────────────────────────────────┐
-                  │ Format response:                │
-                  │ - totalDistance: "X.XX km"      │
-                  │ - Include unassigned vehicles   │
-                  │ - Return DispatchPlanResponse   │
-                  └─────────────────────────────────┘
-```
-
-### Key Algorithmic Invariants:
-1. **Priority Processing Order:** `HIGH` orders are processed first, followed by `MEDIUM`, then `LOW`.
-2. **Capacity Hard Feasibility:** An order is never assigned to a vehicle unless `vehicle.remainingCapacity >= order.packageWeight`.
-3. **Local Greedy Distance Minimization:** Among feasible vehicles, the one closest to the order's drop point is selected.
-4. **Deterministic Tie-Breaking:** If two vehicles are equidistant (within $\pm 10^{-7}\text{ km}$), the vehicle with the lexicographically smaller `vehicleId` is selected.
-5. **Route Sequence Accumulation:** Travel distance starts at the vehicle's initial position and adds each leg sequentially: $\text{Distance} = \text{dist}(S, s_1) + \text{dist}(s_1, s_2) + \dots + \text{dist}(s_{n-1}, s_n)$.
-6. **No Return-to-Depot:** In accordance with the assignment specification, vehicles do not return to their starting coordinates.
-7. **Every Vehicle Included:** Vehicles receiving 0 orders are included in `dispatchPlan` with `totalLoad: 0.0`, `totalDistance: "0.00 km"`, and empty `assignedOrders`.
-
-### Haversine Distance Formula:
-$$d = 2 R \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}\right)$$
-- $R = 6,371.0\text{ km}$ (Earth's mean spherical radius).
-- Coordinates $\phi_1, \phi_2$ (latitudes) and $\lambda_1, \lambda_2$ (longitudes) in radians.
-- Identical points return exactly `0.0 km`.
-
-### Time & Space Complexity:
-- **Time Complexity:** $O(O \log O + O \cdot V)$ where $O$ is the number of orders and $V$ is fleet size.
-- **Space Complexity:** $O(O + V)$ in-memory state tracking.
-- For 30 orders and 5 vehicles, the optimizer performs only 150 distance evaluations, executing in sub-millisecond time.
+Distance calculation uses the spherical Haversine formula ($R = 6371.0\text{ km}$):
+$$d = 2R \arcsin\left(\sqrt{\sin^2\left(\frac{\Delta \phi}{2}\right) + \cos(\phi_1)\cos(\phi_2)\sin^2\left(\frac{\Delta \lambda}{2}\right)}\right)$$
 
 ---
 
-## 11. Sample Dataset Analysis (PDF Benchmark)
+## Postman Collection
 
-The assignment provides a benchmark dataset comprising **30 delivery orders** across the Delhi NCR region and **5 fleet vehicles**:
-
-- **Total Order Weight:** $645.0\text{ kg}$
-- **Total Fleet Capacity:** $500.0\text{ kg}$ ($\text{VEH001: 100, VEH002: 80, VEH003: 120, VEH004: 90, VEH005: 110}$)
-- **Mathematical Invariant:** Because total demand exceeds total fleet capacity by $145\text{ kg}$, **at least $145.0\text{ kg}$ of orders must remain unassigned**.
-- **Automated Verification:** Verified both via unit test (`SampleDatasetVerificationTest`) and over live HTTP (`DispatchEndToEndIntegrationTest.testFullSampleDatasetOverHttp`). All 30 orders are strictly accounted for, no vehicle exceeds its capacity, and total load conservation holds.
-
----
-
-## 12. Postman Collection
-
-An importable Postman collection is provided in:
-
-[`postman/FreightFox-Dispatch.postman_collection.json`](postman/FreightFox-Dispatch.postman_collection.json)
-
-### Included Requests:
-1. `GET /api/dispatch/plan` — Retrieve current / initial dispatch plan.
-2. `POST /api/dispatch/vehicles` — Submit sample fleet details (`VEH001`, `VEH002`).
-3. `POST /api/dispatch/orders` — Submit sample delivery orders (`ORD001`, `ORD002`).
-4. `GET /api/dispatch/plan` — Retrieve populated dispatch plan.
-5. `POST /api/dispatch/orders - Invalid Fields (400)` — Verification of validation failure response.
-6. `POST /api/dispatch/orders - Duplicate IDs (400)` — Verification of in-batch duplicate rejection.
-7. `POST /api/dispatch/vehicles - Invalid Capacity (400)` — Verification of vehicle validation.
-8. `POST /api/dispatch/vehicles - Full 5 Vehicles (PDF Dataset)` — Bulk import of all 5 PDF vehicles.
-9. `POST /api/dispatch/orders - Full 30 Orders (PDF Dataset)` — Bulk import of all 30 PDF orders.
-10. `GET /api/dispatch/plan - Full PDF Sample Plan` — Generates complete Delhi NCR dispatch plan.
-
-#### Safe Local Data Reset:
-To reset only test data created during manual testing without deleting unrelated collections, execute in `mongosh` / MongoDB Compass:
-```javascript
-use freightfox;
-db.delivery_orders.deleteMany({ orderId: { $regex: /^(ORD|TEST_)/ } });
-db.vehicles.deleteMany({ vehicleId: { $regex: /^(VEH|TEST_)/ } });
+A ready-to-import Postman collection is located at:
+```
+postman/FreightFox-Dispatch.postman_collection.json
 ```
 
+It contains pre-configured requests for:
+1. Initial empty plan verification
+2. Vehicle and order batch creation (sample dataset)
+3. Validation error testing (invalid coordinates, negative weight, duplicate IDs)
+4. The full 30-order, 5-vehicle benchmark dataset across Delhi NCR
+5. Full plan retrieval
+
+To use it, import the JSON file into Postman, configure the `baseUrl` variable (defaults to `http://localhost:8080`), and run the requests.
+
 ---
 
-## 13. Test Suite Summary
+## Docker & Container Deployment
 
-The application is thoroughly verified by **68 automated tests** covering every layer:
+### Local Docker Build
 
+A multi-stage `Dockerfile` is included to build a lightweight, production-ready container:
+
+```bash
+# Build the Docker image
+docker build -t freightfox-dispatch-load-balancer .
+
+# Run container locally
+docker run -d -p 8080:8080 \
+  -e MONGODB_URI="mongodb+srv://<user>:<password>@<cluster>.mongodb.net/freightfox?retryWrites=true&w=majority" \
+  --name freightfox-app freightfox-dispatch-load-balancer
 ```
-[INFO] -------------------------------------------------------
-[INFO]  T E S T S
-[INFO] -------------------------------------------------------
-[INFO] Running DispatchEndToEndIntegrationTest .......... [2 passed]
-[INFO] Running DispatchApplicationTests ................. [1 passed]
-[INFO] Running DispatchControllerTest .................. [10 passed]
-[INFO] Running DispatchOptimizerTest ................... [12 passed]
-[INFO] Running SampleDatasetVerificationTest ........... [1 passed]
-[INFO] Running ValidationTest .......................... [20 passed]
-[INFO] Running PersistenceIntegrationTest .............. [6 passed]
-[INFO] Running ServiceBatchLogicTest ................... [8 passed]
-[INFO] Running HaversineCalculatorTest ................. [8 passed]
-[INFO] 
-[INFO] Results:
-[INFO] Tests run: 68, Failures: 0, Errors: 0, Skipped: 0
-[INFO] --------------------------------------------------------
-[INFO] BUILD SUCCESS
-```
+
+### Dockerfile Highlights
+- **Multi-stage build:** Builds JAR with Maven in an Alpine builder stage, then copies only the JAR to a minimal Eclipse Temurin 21 JRE runtime.
+- **Security:** Runs under a non-root user (`appuser:appgroup`).
+- **Memory tuning:** Configured with `-XX:+UseContainerSupport` and `-XX:MaxRAMPercentage=75.0` to respect container cgroups and prevent out-of-memory errors on small instances.
+- **Dynamic Port:** Reads the `$PORT` environment variable (compatible with cloud platforms like Render).
 
 ---
 
-## 14. Current Limitations & Assumptions
+## Deploying to Render
 
-1. **Greedy Heuristic vs. Global Optimal:** The priority-aware nearest neighbor algorithm prioritizes urgent orders and executes fast ($O(O \cdot V)$), but does not solve NP-hard Capacitated Vehicle Routing Problem (CVRP) to global distance optimality.
-2. **Static Distance Metric:** Calculations use great-circle Haversine distances. Road network topology, one-way streets, and live traffic congestion are not considered.
-3. **Sequential Single Trip:** Each vehicle performs a single route from its current position until its capacity is exhausted, without multi-trip replenishment.
-
----
-
-## 15. Render + MongoDB Atlas Cloud Deployment Guide
-
-### A. MongoDB Atlas Preparation
-1. **Cluster:** `cluster0.plaz2ou.mongodb.net`
-2. **Database:** `freightfox`
-3. **Collections:** `delivery_orders`, `vehicles` (auto-created on first insert)
-4. **Network Access Allowlist:**
-   - In MongoDB Atlas dashboard &rarr; **Security** &rarr; **Network Access**.
-   - For local development: Click **Add IP Address** &rarr; **Add Current IP Address**.
-   - For Render cloud deployment: Render instances use dynamic outbound IPs. To allow connectivity, configure `0.0.0.0/0` ("Allow Access from Anywhere") or specify the dedicated outbound IP if using a paid Render team/static outbound IP plan.
-
-### B. Render Web Service Deployment
-1. Log in to [render.com](https://render.com) and click **New +** &rarr; **Web Service**.
-2. Connect your GitHub repository: `https://github.com/chandangupta7143/freightfox-dispatch-load-balancer`.
-3. Configure the service settings:
-   - **Name:** `freightfox-dispatch-load-balancer` (or desired name)
-   - **Region:** Singapore / Frankfurt / Oregon (nearest to your Atlas cluster)
+1. Create a **New Web Service** on [Render](https://render.com).
+2. Connect this GitHub repository.
+3. Configure settings:
+   - **Environment:** Docker
    - **Branch:** `main`
-   - **Runtime / Environment:** **Docker** (Render automatically detects the multi-stage `Dockerfile`)
    - **Plan:** Free
-4. In **Environment Variables**, add:
-   - `MONGODB_URI`: `mongodb+srv://chandangupta21092005_db_user:<YOUR_PASSWORD>@cluster0.plaz2ou.mongodb.net/freightfox?retryWrites=true&w=majority`
-   - *(Optional)* `PORT`: `10000` (Render dynamically sets `$PORT`, which our `Dockerfile` and `application.properties` bind to automatically).
-5. Click **Deploy Web Service**.
-6. Render builds the Docker image and starts the container.
-7. Once deployed, verify:
-   - **Swagger UI:** `https://<your-render-subdomain>.onrender.com/swagger-ui.html`
-   - **OpenAPI Docs:** `https://<your-render-subdomain>.onrender.com/api-docs`
-   - **API Endpoints:** Use Postman or curl against the live URL.
+4. Under **Environment Variables**, add:
+   - `MONGODB_URI`: Your MongoDB Atlas connection string.
+5. In your MongoDB Atlas dashboard under **Network Access**, ensure Render's outbound traffic can connect (allow `0.0.0.0/0` or dedicated static outbound IP).
+6. Click **Deploy Web Service**. Render will build the Dockerfile and start the service.
 
-> [!NOTE]
-> **Free-Tier Cold Starts:** Render's free tier spins down web services after 15 minutes of inactivity. When a new request arrives, it spins up the container, which may take ~30–50 seconds on initial wake-up. Subsequent requests execute with sub-second latency.
+---
+
+## Project Structure
+
+```
+freightfox-dispatch-load-balancer/
+├── pom.xml
+├── Dockerfile
+├── .dockerignore
+├── postman/
+│   └── FreightFox-Dispatch.postman_collection.json
+└── src/
+    ├── main/
+    │   ├── java/com/chandan/freightfox/
+    │   │   ├── DispatchApplication.java
+    │   │   ├── config/OpenApiConfig.java
+    │   │   ├── controller/DispatchController.java
+    │   │   ├── service/
+    │   │   │   ├── OrderService.java
+    │   │   │   ├── VehicleService.java
+    │   │   │   └── DispatchService.java
+    │   │   ├── algorithm/DispatchOptimizer.java
+    │   │   ├── util/HaversineCalculator.java
+    │   │   ├── entity/
+    │   │   │   ├── DeliveryOrder.java
+    │   │   │   ├── Vehicle.java
+    │   │   │   └── OrderPriority.java
+    │   │   ├── repository/
+    │   │   │   ├── OrderRepository.java
+    │   │   │   └── VehicleRepository.java
+    │   │   ├── dto/
+    │   │   └── exception/GlobalExceptionHandler.java
+    │   └── resources/application.properties
+    └── test/
+        └── java/com/chandan/freightfox/
+            ├── DispatchApplicationTests.java
+            ├── algorithm/
+            ├── controller/
+            ├── dto/
+            ├── service/
+            └── util/
+```
+
+---
+
+## Author
+
+**Chandan Gupta**  
+[GitHub Profile](https://github.com/chandangupta7143)

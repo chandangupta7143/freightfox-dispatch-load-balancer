@@ -9,6 +9,15 @@ target/
 .env.*
 *.log
 
+# Local audit reports and test runner artifacts
+*_REPORT.md
+*_REVIEW.md
+*_VERIFICATION.md
+*_INVESTIGATION.md
+*_RECONCILIATION.md
+postman/*Audit*.json
+postman/*Stage*.json
+
 ### STS ###
 .apt_generated
 .classpath
